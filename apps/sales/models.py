@@ -6,7 +6,10 @@ class SalesOrder(models.Model):
         ("DRAFT", "Draft"),
         ("CONFIRMED", "Confirmed"),
         ("RESERVED", "Reserved"),
+         ("PICKING", "Picking"),
+        ("READY_FOR_DISPATCH", "Ready for Dispatch"),
         ("DISPATCHED", "Dispatched"),
+         ("COMPLETED", "Completed"),
         ("CANCELLED", "Cancelled"),
     ]
 
