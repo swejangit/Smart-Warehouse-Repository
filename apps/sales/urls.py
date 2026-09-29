@@ -5,6 +5,8 @@ from .views import (
     SalesOrderDetailView,
     SalesOrderAvailabilityView,
     SalesOrderReserveView,
+    SalesOrderStatusView,
+    SalesOrderReleaseReservationView,
 )
 
 
@@ -28,5 +30,15 @@ urlpatterns = [
         "<int:order_id>/reserve/",
         SalesOrderReserveView.as_view(),
         name="sales-order-reserve",
+        ), 
+    path(
+        "<int:order_id>/status/",
+        SalesOrderStatusView.as_view(),
+        name="sales-order-status",
+        ),      
+    path(
+        "<int:order_id>/release-reservation/",
+        SalesOrderReleaseReservationView.as_view(),
+        name="sales-order-release-reservation",
         ),    
 ]

@@ -6,6 +6,7 @@ from apps.customers.models import Customer
 
 from .models import SalesOrder, SalesOrderItem
 from .serializers import SalesOrderSerializer
+from rest_framework.test import APIClient
 
 
 class SalesOrderSerializerTest(TestCase):
@@ -268,3 +269,209 @@ class SalesOrderSerializerTest(TestCase):
                 ).count(),
                 2
             )
+
+class SalesOrder_APITest(TestCase):
+
+    def setUp(self):
+        self.client = APIClient()
+
+        self.customer = Customer.objects.create(
+            customer_code="SPRINT2-CUST",
+            name="Sprint 2 Customer"
+        )
+
+        self.order = SalesOrder.objects.create(
+            so_no="SPRINT2-SO-001",
+            customer_id=self.customer.id,
+            status="CONFIRMED"
+        )
+
+        self.item = SalesOrderItem.objects.create(
+            sales_order=self.order,
+            product_id=101,
+            ordered_qty=5,
+            unit_price=500,
+            item_total=2500
+        )
+
+    def test_stock_availability_success(self):
+     with patch(
+        "apps.sales.views.get_stock_availability"
+     ) as mock_stock:
+
+        mock_stock.return_value = {
+            "product_id": 101,
+            "available_quantity": 20
+        }
+
+        response = self.client.post(
+            f"/api/sales-orders/{self.order.id}/availability-check/"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+
+    def test_stock_availability_insufficient(self):
+        with patch(
+        "apps.sales.views.get_stock_availability"
+        ) as mock_stock:
+
+            mock_stock.return_value = {
+            "product_id": 101,
+            "available_quantity": 2
+        }
+
+        response = self.client.post(
+            f"/api/sales-orders/{self.order.id}/availability-check/"
+        )
+
+        self.assertEqual(response.status_code, 200)
+    def test_stock_reservation_success(self):
+        with patch(
+            "apps.sales.views.get_stock_availability"
+        ) as mock_stock, patch(
+            "apps.sales.views.reserve_stock"
+        ) as mock_reserve:
+
+            mock_stock.return_value = {
+                "product_id": 101,
+                "available_quantity": 20
+            }
+
+            mock_reserve.return_value = {
+                "success": True,
+                "product_id": 101,
+                "reserved_quantity": 5
+            }
+
+            response = self.client.post(
+                f"/api/sales-orders/{self.order.id}/reserve/"
+            )
+
+            self.assertEqual(response.status_code, 200)
+
+            self.item.refresh_from_db()
+            self.order.refresh_from_db()
+
+            self.assertEqual(self.item.reserved_qty, 5)
+            self.assertEqual(self.order.status, "RESERVED")
+
+    def test_stock_reservation_insufficient(self):
+        with patch(
+            "apps.sales.views.get_stock_availability"
+        ) as mock_stock:
+
+            mock_stock.return_value = {
+                "product_id": 101,
+                "available_quantity": 2
+            }
+
+            response = self.client.post(
+                f"/api/sales-orders/{self.order.id}/reserve/"
+            )
+
+            self.assertEqual(response.status_code, 409)
+
+    def test_release_reservation_success(self):
+        self.order.status = "RESERVED"
+        self.order.save()
+
+        self.item.reserved_qty = 5
+        self.item.save()
+
+        with patch(
+            "apps.sales.views.release_stock"
+        ) as mock_release:
+
+            mock_release.return_value = {
+                "success": True,
+                "product_id": 101,
+                "released_quantity": 5
+            }
+
+            response = self.client.post(
+                f"/api/sales-orders/{self.order.id}/release-reservation/"
+            )
+
+            self.assertEqual(response.status_code, 200)
+
+            self.item.refresh_from_db()
+            self.order.refresh_from_db()
+
+            self.assertEqual(self.item.reserved_qty, 0)
+            self.assertEqual(self.order.status, "CONFIRMED")
+
+    def test_release_without_active_reservation(self):
+        response = self.client.post(
+            f"/api/sales-orders/{self.order.id}/release-reservation/"
+        )
+
+        self.assertEqual(response.status_code, 409)
+
+    def test_valid_order_status_transition(self):
+        response = self.client.patch(
+            f"/api/sales-orders/{self.order.id}/status/",
+            {"status": "RESERVED"},
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.order.status,
+            "RESERVED"
+        )
+
+    def test_invalid_order_status_transition(self):
+        response = self.client.patch(
+            f"/api/sales-orders/{self.order.id}/status/",
+            {"status": "COMPLETED"},
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, 409)
+
+    def test_reserved_order_cancellation_releases_reservation(self):
+        self.order.status = "RESERVED"
+        self.order.save()
+
+        self.item.reserved_qty = 5
+        self.item.save()
+
+        with patch(
+            "apps.sales.views.release_stock"
+        ) as mock_release:
+
+            mock_release.return_value = {
+                "success": True,
+                "product_id": 101,
+                "released_quantity": 5
+            }
+
+            response = self.client.patch(
+                f"/api/sales-orders/{self.order.id}/status/",
+                {"status": "CANCELLED"},
+                format="json"
+            )
+
+            self.assertEqual(response.status_code, 200)
+
+            self.item.refresh_from_db()
+            self.order.refresh_from_db()
+
+            self.assertEqual(
+                self.order.status,
+                "CANCELLED"
+            )
+
+            self.assertEqual(
+                self.item.reserved_qty,
+                0
+            )
+
+            mock_release.assert_called_once_with(
+                101,
+                5
+            )            

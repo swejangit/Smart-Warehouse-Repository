@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 
 from .serializers import SalesOrderSerializer
 from .models import SalesOrder
-from .services import get_stock_availability, reserve_stock
+from .services import get_stock_availability, reserve_stock, release_stock
 
 class SalesOrderCreateView(APIView):
 
@@ -232,6 +232,222 @@ class SalesOrderReserveView(APIView):
                     "reservations": reservations,
                 },
                 "message": "Stock reserved successfully",
+            },
+            status=status.HTTP_200_OK,
+        )    
+ORDER_STATUS_TRANSITIONS = {
+    "DRAFT": ["CONFIRMED"],
+    "CONFIRMED": ["RESERVED", "CANCELLED"],
+    "RESERVED": ["PICKING", "CANCELLED"],
+    "PICKING": ["READY_FOR_DISPATCH"],
+    "READY_FOR_DISPATCH": ["DISPATCHED"],
+    "DISPATCHED": ["COMPLETED"],
+    "COMPLETED": [],
+    "CANCELLED": [],
+}
+
+
+class SalesOrderStatusView(APIView):
+
+    def patch(self, request, order_id):
+        try:
+            order = SalesOrder.objects.get(id=order_id)
+        except SalesOrder.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Sales order not found",
+                    },
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        new_status = request.data.get("status")
+
+        if not new_status:
+            return Response(
+                {
+                    "success": False,
+                    "error": {
+                        "code": "INVALID_STATUS",
+                        "message": "Status is required",
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        valid_statuses = dict(SalesOrder.STATUS_CHOICES)
+
+        if new_status not in valid_statuses:
+            return Response(
+                {
+                    "success": False,
+                    "error": {
+                        "code": "INVALID_STATUS",
+                        "message": f"Invalid status: {new_status}",
+                    },
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        allowed_statuses = ORDER_STATUS_TRANSITIONS.get(
+            order.status,
+            []
+        )
+
+        if new_status not in allowed_statuses:
+            return Response(
+                {
+                    "success": False,
+                    "error": {
+                        "code": "INVALID_STATUS_TRANSITION",
+                        "message": (
+                            f"Cannot change order status "
+                            f"from {order.status} to {new_status}"
+                        ),
+                    },
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        old_status = order.status
+
+        # If a RESERVED order is being cancelled,
+        # release all active reservations first.
+        if old_status == "RESERVED" and new_status == "CANCELLED":
+
+            for item in order.items.all():
+
+                if item.reserved_qty <= 0:
+                    continue
+
+                result = release_stock(
+                item.product_id,
+                item.reserved_qty
+                    )
+
+                if result is None or not result.get("success"):
+                    return Response(
+                    {
+                        "success": False,
+                        "error": {
+                            "code": "RELEASE_FAILED",
+                            "message": (
+                                f"Reservation release failed "
+                                f"for product {item.product_id}"
+                            ),
+                            },
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                    )
+
+            item.reserved_qty = 0
+            item.save(
+                update_fields=["reserved_qty", "updated_at"]
+            )
+
+        order.status = new_status
+        order.save(
+            update_fields=["status", "updated_at"]  
+            )
+
+        return Response(
+                {
+                "success": True,
+                "data": {
+                    "order_id": order.id,
+                    "previous_status": old_status,
+                    "status": order.status,
+                },
+                "message": "Order status updated successfully",
+            },
+            status=status.HTTP_200_OK,
+        )    
+
+class SalesOrderReleaseReservationView(APIView):
+
+    def post(self, request, order_id):
+        try:
+            order = SalesOrder.objects.get(id=order_id)
+        except SalesOrder.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Sales order not found",
+                    },
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check whether the order has active reservations
+        reservations = []
+
+        for item in order.items.all():
+
+            if item.reserved_qty <= 0:
+                continue
+
+            result = release_stock(
+                item.product_id,
+                item.reserved_qty
+                )
+
+            if result is None or not result.get("success"):
+                return Response(
+                    {
+                        "success": False,
+                        "error": {
+                            "code": "RELEASE_FAILED",
+                            "message": (
+                                f"Reservation release failed "
+                                f"for product {item.product_id}"
+                            ),
+                        },
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            reservations.append(
+                {
+                    "product_id": item.product_id,
+                    "released_qty": item.reserved_qty,
+                }
+            )
+
+            # Clear the reservation from the order item
+            item.reserved_qty = 0
+            item.save(update_fields=["reserved_qty", "updated_at"])
+
+        if not reservations:
+            return Response(
+                {
+                    "success": False,
+                    "error": {
+                        "code": "NO_ACTIVE_RESERVATION",
+                        "message": "No active reservation found for this order",
+                    },
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # If the order was RESERVED, move it back to CONFIRMED
+        if order.status == "RESERVED":
+            order.status = "CONFIRMED"
+            order.save(update_fields=["status", "updated_at"])
+
+        return Response(
+            {
+                "success": True,
+                "data": {
+                    "order_id": order.id,
+                    "status": order.status,
+                    "released_reservations": reservations,
+                },
+                "message": "Stock reservation released successfully",
             },
             status=status.HTTP_200_OK,
         )    

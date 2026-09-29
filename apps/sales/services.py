@@ -1,6 +1,6 @@
 # sales/services.py
 
-from .mock_products import get_mock_product, get_mock_stock,mock_reserve_stock
+from .mock_products import get_mock_product, get_mock_stock,mock_reserve_stock,  mock_release_stock
 
 
 #Mock Api from Emp-1
@@ -15,7 +15,9 @@ def get_stock_availability(product_id):
 def reserve_stock(product_id, quantity):
     return mock_reserve_stock(product_id, quantity)
 
-
+# Mock API from Emp-2
+def release_stock(product_id, quantity):
+    return mock_release_stock(product_id, quantity)
 
 
 
@@ -27,7 +29,7 @@ def reserve_stock(product_id, quantity):
 
 # Employee 1 - Real API Integration
 
-
+#get products api
 '''import requests
 
 
@@ -50,6 +52,7 @@ def get_product_from_employee1(product_id):
 
 
 # Employee 2 - Real API Integration
+# checking stock availability 
 '''
 import requests
 
@@ -72,7 +75,7 @@ def get_stock_availability(product_id):
     return None
 '''
 
-
+# reserving stock -emp2
 '''
 import requests
 
@@ -98,4 +101,31 @@ def reserve_stock(product_id, quantity):
 
     return None
 
+'''
+
+# Release Stock - emp2
+'''
+import requests
+
+
+def release_stock(product_id, quantity):
+    url = f"http://employee2/api/inventory/{product_id}/release"
+
+    try:
+        response = requests.post(
+            url,
+            json={"quantity": quantity},
+            timeout=5
+        )
+
+    except requests.exceptions.Timeout:
+        return None
+
+    except requests.exceptions.RequestException:
+        return None
+
+    if response.status_code == 200:
+        return response.json()
+
+    return None
 '''

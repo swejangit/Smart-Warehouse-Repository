@@ -63,3 +63,16 @@ def mock_reserve_stock(product_id, quantity):
         "product_id": product_id,
         "reserved_quantity": quantity
     }
+def mock_release_stock(product_id, quantity):
+    stock = MOCK_INVENTORY.get(product_id)
+
+    if stock is None:
+        return None
+
+    stock["available_quantity"] += quantity
+
+    return {
+        "success": True,
+        "product_id": product_id,
+        "released_quantity": quantity
+    }
