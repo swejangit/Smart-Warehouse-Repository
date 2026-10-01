@@ -161,7 +161,7 @@ export const UserProfile: React.FC = () => {
       <div className="row g-4 mb-4">
         {/* Left Column: User Avatar Card */}
         <div className="col-12 col-lg-4">
-          <div className="card shadow-sm border-0 rounded-4 overflow-hidden h-100 text-center p-4 bg-white d-flex flex-column align-items-center justify-content-between">
+          <div className="card shadow-sm border-0 rounded-4 overflow-hidden h-100 text-center p-4 bg-white d-flex flex-column align-items-center justify-content-start gap-3">
             <div className="w-100">
               {/* Profile Image & Badge */}
               <div className="position-relative d-inline-block mb-3">
@@ -211,23 +211,60 @@ export const UserProfile: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Profile Meta */}
-            <div className="w-100 bg-light rounded-3 p-3 border text-start fs-7">
-              <div className="d-flex justify-content-between mb-2">
-                <span className="text-muted fs-8 text-uppercase fw-semibold">Employee ID:</span>
-                <span className="fw-bold font-monospace text-dark">{profile.employeeId}</span>
-              </div>
-              <div className="d-flex justify-content-between mb-2">
-                <span className="text-muted fs-8 text-uppercase fw-semibold">Department:</span>
-                <span className="fw-semibold text-dark">{profile.department}</span>
-              </div>
-              <div className="d-flex justify-content-between mb-2">
-                <span className="text-muted fs-8 text-uppercase fw-semibold">Warehouse Facility:</span>
-                <span className="fw-semibold text-dark">{profile.facility}</span>
-              </div>
-              <div className="d-flex justify-content-between">
-                <span className="text-muted fs-8 text-uppercase fw-semibold">Assigned Scanner:</span>
-                <span className="fw-semibold text-primary">{profile.scannerDevice}</span>
+            {/* Quick Profile Meta - Clean Row Wise Alignment */}
+            <div className="w-100 bg-light rounded-4 p-3 border text-start">
+              <div className="d-flex flex-column gap-2">
+                {/* Row 1: Employee ID */}
+                <div className="bg-white rounded-3 p-2.5 border shadow-xs d-flex align-items-center justify-content-between gap-2 overflow-hidden">
+                  <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                    <div className="p-1.5 rounded-2 bg-primary-subtle text-primary d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px' }}>
+                      <i className="bi bi-person-badge fs-7"></i>
+                    </div>
+                    <span className="text-secondary fs-8 text-uppercase fw-bold tracking-wider">Employee ID</span>
+                  </div>
+                  <span className="fw-bold font-monospace text-dark fs-8 bg-light px-2.5 py-1 rounded border text-end flex-shrink-0">
+                    {profile.employeeId}
+                  </span>
+                </div>
+
+                {/* Row 2: Department */}
+                <div className="bg-white rounded-3 p-2.5 border shadow-xs d-flex align-items-center justify-content-between gap-2 overflow-hidden">
+                  <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                    <div className="p-1.5 rounded-2 text-purple d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', backgroundColor: '#f3e8ff', color: '#7e22ce' }}>
+                      <i className="bi bi-diagram-3 fs-7"></i>
+                    </div>
+                    <span className="text-secondary fs-8 text-uppercase fw-bold tracking-wider">Department</span>
+                  </div>
+                  <span className="fw-semibold text-dark fs-8 text-end text-truncate ms-auto" title={profile.department}>
+                    {profile.department}
+                  </span>
+                </div>
+
+                {/* Row 3: Warehouse Facility */}
+                <div className="bg-white rounded-3 p-2.5 border shadow-xs d-flex align-items-center justify-content-between gap-2 overflow-hidden">
+                  <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                    <div className="p-1.5 rounded-2 bg-success-subtle text-success d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px' }}>
+                      <i className="bi bi-building fs-7"></i>
+                    </div>
+                    <span className="text-secondary fs-8 text-uppercase fw-bold tracking-wider">Facility</span>
+                  </div>
+                  <span className="fw-semibold text-dark fs-8 text-end text-truncate ms-auto" title={profile.facility}>
+                    {profile.facility}
+                  </span>
+                </div>
+
+                {/* Row 4: Assigned Scanner */}
+                <div className="bg-white rounded-3 p-2.5 border shadow-xs d-flex align-items-center justify-content-between gap-2 overflow-hidden">
+                  <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                    <div className="p-1.5 rounded-2 bg-info-subtle text-info d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px' }}>
+                      <i className="bi bi-upc-scan fs-7"></i>
+                    </div>
+                    <span className="text-secondary fs-8 text-uppercase fw-bold tracking-wider">Scanner</span>
+                  </div>
+                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 fs-8 fw-semibold text-end text-truncate ms-auto" style={{ maxWidth: '60%' }} title={profile.scannerDevice}>
+                    {profile.scannerDevice}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

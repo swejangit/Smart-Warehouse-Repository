@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getUserProfile, DEFAULT_USER_PROFILE } from '../../utils/userProfile';
+import type { UserProfileData } from '../../utils/userProfile';
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -29,8 +30,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const profile = getUserProfile();
-  const safeProfile = profile || DEFAULT_USER_PROFILE;
+  // Reactive User Profile state
+  const [profileState, setProfileState] = useState<UserProfileData>(() => getUserProfile() || DEFAULT_USER_PROFILE);
+  const safeProfile = profileState || DEFAULT_USER_PROFILE;
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      setProfileState(getUserProfile() || DEFAULT_USER_PROFILE);
+    };
+    window.addEventListener('user-profile-updated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('user-profile-updated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
+    };
+  }, []);
+
+  // Profile Button Hover state
+  const [isProfileHovered, setIsProfileHovered] = useState<boolean>(false);
 
   // Search & Scope state for Navbar global search
   const [navSearch, setNavSearch] = useState<string>(() => searchParams.get('search') || '');
@@ -242,16 +259,32 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     clearNotifications();
   };
 
-  const getNotifIcon = (type: NotificationItem['type']) => {
+  const getNotifConfig = (type: NotificationItem['type']) => {
     switch (type) {
       case 'record_created':
-        return 'bi-box-arrow-in-down text-primary bg-primary-subtle';
+        return {
+          icon: 'bi-box-arrow-in-down',
+          badgeBgClass: 'bg-primary-subtle',
+          iconColorClass: 'text-primary',
+        };
       case 'inspection_completed':
-        return 'bi-check-circle-fill text-success bg-success-subtle';
+        return {
+          icon: 'bi-check-circle-fill',
+          badgeBgClass: 'bg-success-subtle',
+          iconColorClass: 'text-success',
+        };
       case 'discrepancy_alert':
-        return 'bi-exclamation-triangle-fill text-danger bg-danger-subtle';
+        return {
+          icon: 'bi-exclamation-triangle-fill',
+          badgeBgClass: 'bg-danger-subtle',
+          iconColorClass: 'text-danger',
+        };
       default:
-        return 'bi-bell-fill text-info bg-info-subtle';
+        return {
+          icon: 'bi-bell-fill',
+          badgeBgClass: 'bg-info-subtle',
+          iconColorClass: 'text-info',
+        };
     }
   };
 
@@ -260,8 +293,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       className="navbar navbar-expand-lg bg-white border-bottom shadow-sm px-3 px-lg-4 app-header fixed-top"
       style={{ height: '64px', minHeight: '64px', zIndex: 1030 }}
     >
-      <div className="container-fluid p-0 d-flex align-items-center justify-content-between h-100 gap-2">
-        {/* Left Side: Mobile Toggle + Facility Indicator */}
+      <div className="container-fluid p-0 d-flex align-items-center justify-content-between h-100 gap-2 gap-md-3">
+        {/* 1. Left Side: Mobile Toggle + Mobile Logo + Facility Indicator */}
         <div className="d-flex align-items-center gap-2 gap-md-3">
           <button
             className="btn btn-light border-0 d-lg-none p-2 rounded-2 d-flex align-items-center justify-content-center"
@@ -285,23 +318,23 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
           {/* Current Warehouse Facility Indicator */}
           <div
-            className="d-flex align-items-center bg-white rounded-pill px-3.5 px-md-4 py-2 border border-light-subtle shadow-sm my-auto d-none d-sm-flex"
+            className="d-flex align-items-center bg-white rounded-pill px-3 px-md-3.5 py-1.5 border border-light-subtle shadow-xs my-auto d-none d-sm-flex"
             style={{ minHeight: '44px' }}
           >
             <div
-              className="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-3 shadow-xs"
-              style={{ width: '36px', height: '36px', minWidth: '36px' }}
+              className="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-2.5 shadow-xs"
+              style={{ width: '34px', height: '34px', minWidth: '34px' }}
             >
               <i className="bi bi-building-fill fs-6"></i>
             </div>
-            <div className="d-flex align-items-center gap-3">
+            <div className="d-flex align-items-center gap-2">
               <div className="d-flex flex-column justify-content-center">
-                <span className="text-muted fs-8 fw-bold text-uppercase tracking-wider lh-1 mb-1" style={{ fontSize: '0.68rem' }}>
+                <span className="text-muted fs-8 fw-bold text-uppercase tracking-wider lh-1 mb-1" style={{ fontSize: '0.65rem' }}>
                   Facility
                 </span>
                 <span className="fw-bold text-dark fs-7 lh-1">{safeProfile.facility || 'Main DC (WH-01)'}</span>
               </div>
-              <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill fs-8 px-2.5 py-1 d-inline-flex align-items-center gap-1.5 ms-1">
+              <span className="badge bg-success-subtle text-success border border-success-subtle rounded-pill fs-8 px-2 py-0.5 d-inline-flex align-items-center gap-1 ms-1">
                 <span className="spinner-grow spinner-grow-sm text-success" style={{ width: '6px', height: '6px' }} role="status"></span>
                 <span>Online</span>
               </span>
@@ -309,11 +342,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           </div>
         </div>
 
-        {/* Middle Container: Global All-Pages WMS Search */}
+        {/* 2. Middle Container: Global All-Pages WMS Search Bar */}
         <div
           ref={searchContainerRef}
-          className="mx-auto flex-grow-1 position-relative"
-          style={{ maxWidth: '520px' }}
+          className="position-relative my-auto flex-grow-1 mx-2 mx-md-4"
+          style={{ maxWidth: '480px', minWidth: '220px' }}
         >
           <form
             onSubmit={handleGlobalSearch}
@@ -325,7 +358,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             <input
               type="text"
               className="form-control border-0 bg-transparent shadow-none fs-7 py-1.5"
-              placeholder="Search all pages & data (PO, GRN, PR, product)..."
+              placeholder="Search PO, GRN, PR, product..."
               value={navSearch}
               onChange={(e) => {
                 setNavSearch(e.target.value);
@@ -336,7 +369,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
             <button
               type="submit"
-              className="btn btn-primary btn-sm px-3.5 fw-bold d-inline-flex align-items-center gap-1.5 border-0"
+              className="btn btn-primary btn-sm px-3 fw-bold d-inline-flex align-items-center gap-1.5 border-0"
               style={{ background: 'linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%)' }}
             >
               <i className="bi bi-search fs-8"></i>
@@ -347,7 +380,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           {/* Live Search Results Popup Dropdown */}
           {showSearchDropdown && navSearch.trim().length > 0 && (
             <div
-              className="dropdown-menu show shadow-lg border-0 rounded-4 p-0 mt-2 start-0 end-0 overflow-hidden"
+              className="dropdown-menu show border-0 rounded-3 p-0 mt-2 start-0 end-0 overflow-hidden"
               style={{
                 position: 'absolute',
                 top: '100%',
@@ -355,55 +388,69 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 right: 0,
                 zIndex: 1060,
                 backgroundColor: '#ffffff',
-                border: '1px solid #e2e8f0',
+                border: '1px solid #cbd5e1',
+                boxShadow: '0 12px 32px rgba(15, 23, 42, 0.16)',
               }}
             >
-              <div className="p-2.5 border-bottom bg-light d-flex align-items-center justify-content-between">
+              <div
+                className="border-bottom bg-light d-flex align-items-center justify-content-between"
+                style={{ padding: '10px 14px' }}
+              >
                 <span className="fs-8 fw-bold text-dark text-uppercase tracking-wider">
                   Global Search Results ({searchResults.length} found)
                 </span>
-                <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill fs-8">
+                <span className="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 fs-8 fw-semibold">
                   All Pages
                 </span>
               </div>
 
               <div className="overflow-auto" style={{ maxHeight: '320px' }}>
                 {searchResults.length === 0 ? (
-                  <div className="p-3 text-center text-muted">
-                    <i className="bi bi-search fs-5 d-block mb-1 opacity-50"></i>
-                    <span className="fs-8">No matching data found for "{navSearch}"</span>
+                  <div className="p-4 text-center text-muted">
+                    <i className="bi bi-search fs-4 d-block mb-2 text-secondary opacity-75"></i>
+                    <span className="fs-8 fw-medium">No matching records found for "{navSearch}"</span>
                   </div>
                 ) : (
                   searchResults.map((item) => (
                     <div
                       key={`${item.type}-${item.id}`}
-                      className="p-2.5 border-bottom cursor-pointer transition-colors d-flex align-items-center justify-content-between hover-bg-light"
+                      className="border-bottom cursor-pointer d-flex align-items-center justify-content-between"
                       onClick={() => handleResultItemClick(item.path)}
-                      style={{ cursor: 'pointer' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f1f5f9';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease-in-out',
+                      }}
                     >
-                      <div className="d-flex align-items-center gap-2.5 overflow-hidden">
+                      <div className="d-flex align-items-center gap-3 overflow-hidden me-2">
                         <span
-                          className={`badge rounded-2 px-2 py-1 fs-8 fw-bold text-uppercase ${item.type === 'GRN'
-                              ? 'bg-primary text-white'
-                              : item.type === 'PO'
-                                ? 'bg-indigo text-white'
-                                : 'bg-info text-white'
-                            }`}
+                          className="badge rounded-2 px-2 py-1 fs-8 fw-bold text-uppercase flex-shrink-0 text-white shadow-sm"
                           style={{
                             minWidth: '42px',
                             textAlign: 'center',
-                            backgroundColor: item.type === 'PO' ? '#6610f2' : item.type === 'PR' ? '#0dcaf0' : undefined,
+                            backgroundColor:
+                              item.type === 'GRN'
+                                ? '#2563eb'
+                                : item.type === 'PO'
+                                  ? '#7c3aed'
+                                  : '#0284c7',
                           }}
                         >
                           {item.type}
                         </span>
                         <div className="overflow-hidden">
-                          <div className="fw-bold text-dark fs-7 text-truncate">{item.title}</div>
+                          <div className="fw-semibold text-dark fs-7 text-truncate">{item.title}</div>
                           <div className="text-secondary fs-8 text-truncate">{item.subtitle}</div>
                         </div>
                       </div>
 
-                      <span className={`badge ${item.badgeVariant} border px-2 py-0.5 fs-8 rounded-pill flex-shrink-0 ms-2`}>
+                      <span className={`badge ${item.badgeVariant} border px-2.5 py-1 fs-8 rounded-pill flex-shrink-0`}>
                         {item.badge}
                       </span>
                     </div>
@@ -411,55 +458,70 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 )}
               </div>
 
-              <div className="p-2 border-top bg-light d-flex align-items-center justify-content-around">
+              <div
+                className="border-top bg-light d-flex align-items-center justify-content-center flex-wrap gap-2"
+                style={{ padding: '10px 14px' }}
+              >
                 <button
                   type="button"
-                  className="btn btn-link p-0 text-decoration-none fs-8 text-primary fw-medium"
+                  className="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fs-8 fw-semibold d-flex align-items-center gap-1.5 shadow-sm"
                   onClick={() => {
                     setShowSearchDropdown(false);
                     navigate(`/warehouse/receiving?search=${encodeURIComponent(navSearch.trim())}`);
                   }}
                 >
-                  <i className="bi bi-box-arrow-in-down me-1"></i>Receiving Queue
+                  <i className="bi bi-box-arrow-in-down fs-7"></i>
+                  <span>Receiving Queue</span>
                 </button>
 
                 <button
                   type="button"
-                  className="btn btn-link p-0 text-decoration-none fs-8 text-primary fw-medium"
+                  className="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fs-8 fw-semibold d-flex align-items-center gap-1.5 shadow-sm"
                   onClick={() => {
                     setShowSearchDropdown(false);
                     navigate(`/warehouse/purchase-orders?search=${encodeURIComponent(navSearch.trim())}`);
                   }}
                 >
-                  <i className="bi bi-cart-check me-1"></i>Purchase Orders
+                  <i className="bi bi-cart-check fs-7"></i>
+                  <span>Purchase Orders</span>
                 </button>
 
                 <button
                   type="button"
-                  className="btn btn-link p-0 text-decoration-none fs-8 text-primary fw-medium"
+                  className="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fs-8 fw-semibold d-flex align-items-center gap-1.5 shadow-sm"
                   onClick={() => {
                     setShowSearchDropdown(false);
                     navigate(`/warehouse/purchase-requests?search=${encodeURIComponent(navSearch.trim())}`);
                   }}
                 >
-                  <i className="bi bi-file-earmark-text me-1"></i>Purchase Requests
+                  <i className="bi bi-file-earmark-text fs-7"></i>
+                  <span>Purchase Requests</span>
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right Side: Active Real Notification Center */}
-        <div className="d-flex align-items-center gap-2 gap-md-3 my-auto position-relative">
-          <div className="dropdown d-flex align-items-center">
+        {/* 3 & 4. Right Side Items: Notification + TOTAL Right Corner Profile Button */}
+        <div className="d-flex align-items-center gap-2 gap-md-3 my-auto">
+          {/* 3. Notification Button */}
+          <div className="dropdown d-flex align-items-center position-relative">
             <button
-              className="btn btn-light rounded-circle p-2 position-relative border-0 d-flex align-items-center justify-content-center shadow-xs"
+              className="btn btn-light rounded-circle p-2 position-relative border shadow-xs d-flex align-items-center justify-content-center"
               type="button"
               id="notificationsDropdown"
               aria-expanded={showNotifDropdown}
               onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#e2e8f0';
+                e.currentTarget.style.borderColor = '#cbd5e1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#f8fafc';
+                e.currentTarget.style.borderColor = '#e2e8f0';
+              }}
               aria-label="Notifications"
-              style={{ width: '40px', height: '40px' }}
+              style={{ width: '42px', height: '42px', backgroundColor: '#f8fafc', transition: 'all 0.2s ease-in-out' }}
             >
               <i className="bi bi-bell text-secondary fs-5"></i>
               {unreadCount > 0 && (
@@ -474,24 +536,40 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
             {showNotifDropdown && (
               <div
-                className="dropdown-menu show shadow-lg border-0 rounded-4 p-0 mt-2 end-0 overflow-hidden"
+                className="dropdown-menu show border-0 rounded-3 p-0 mt-2 start-0 overflow-hidden"
                 style={{
                   position: 'absolute',
                   top: '100%',
-                  right: 0,
+                  left: 0,
+                  right: 'auto',
                   zIndex: 1060,
-                  width: '360px',
+                  width: '260px',
                   maxWidth: '90vw',
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e2e8f0',
+                  border: '1.5px solid #2563eb',
+                  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.22), 0 4px 10px rgba(37, 99, 235, 0.15)',
                 }}
               >
                 {/* Notification Dropdown Header */}
-                <div className="p-3 border-bottom bg-light d-flex align-items-center justify-content-between">
-                  <div className="d-flex align-items-center gap-2">
-                    <h6 className="fw-bold text-dark mb-0 fs-7">Live Warehouse Notifications</h6>
+                <div
+                  className="p-2 px-2.5 border-bottom d-flex align-items-center justify-content-between"
+                  style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}
+                >
+                  <div className="d-flex align-items-center gap-2.5">
+                    <h6 className="fw-bold mb-0" style={{ fontSize: '0.75rem', color: '#0f172a' }}>
+                      Notifications
+                    </h6>
                     {unreadCount > 0 && (
-                      <span className="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill fs-8">
+                      <span
+                        className="badge rounded-pill fw-semibold ms-1"
+                        style={{
+                          fontSize: '0.62rem',
+                          padding: '0.15rem 0.45rem',
+                          backgroundColor: '#fee2e2',
+                          color: '#dc2626',
+                          border: '1px solid #fca5a5',
+                        }}
+                      >
                         {unreadCount} new
                       </span>
                     )}
@@ -499,61 +577,75 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   {unreadCount > 0 && (
                     <button
                       type="button"
-                      className="btn btn-link p-0 text-decoration-none fs-8 fw-semibold text-primary"
+                      className="btn btn-link p-0 text-decoration-none fw-semibold"
+                      style={{ fontSize: '0.68rem', color: '#2563eb' }}
                       onClick={handleMarkAllRead}
                     >
-                      Mark all read
+                      Mark read
                     </button>
                   )}
                 </div>
 
                 {/* Notifications List */}
-                <div className="overflow-auto" style={{ maxHeight: '340px' }}>
+                <div className="overflow-auto" style={{ maxHeight: '220px' }}>
                   {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-muted">
-                      <i className="bi bi-bell-slash fs-3 d-block mb-1 opacity-50"></i>
-                      <span className="fs-8">No notifications available</span>
+                    <div className="p-3 text-center text-muted">
+                      <i className="bi bi-bell-slash fs-6 d-block mb-1 opacity-50"></i>
+                      <span style={{ fontSize: '0.7rem' }}>No notifications available</span>
                     </div>
                   ) : (
-                    notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`p-3 border-bottom cursor-pointer transition-colors d-flex gap-3 align-items-start ${!n.read ? 'bg-primary-subtle bg-opacity-10' : 'bg-white'
-                          } hover-bg-light`}
-                        onClick={() => handleNotifClick(n)}
-                      >
+                    notifications.map((n) => {
+                      const config = getNotifConfig(n.type);
+                      const isUnread = !n.read;
+                      return (
                         <div
-                          className={`rounded-circle p-2 d-flex align-items-center justify-content-center flex-shrink-0 ${getNotifIcon(
-                            n.type
-                          )}`}
-                          style={{ width: '36px', height: '36px' }}
+                          key={n.id}
+                          className="p-2 px-2.5 border-bottom cursor-pointer transition-colors d-flex gap-2 align-items-start"
+                          style={{
+                            backgroundColor: isUnread ? '#f0f7ff' : '#ffffff',
+                            borderLeft: isUnread ? '3.5px solid #2563eb' : '3.5px solid transparent',
+                            borderColor: '#e2e8f0',
+                          }}
+                          onClick={() => handleNotifClick(n)}
                         >
-                          <i className={`bi ${getNotifIcon(n.type).split(' ')[0]} fs-6`}></i>
-                        </div>
-                        <div className="flex-grow-1 overflow-hidden">
-                          <div className="d-flex justify-content-between align-items-baseline mb-0.5">
-                            <span className="fw-bold text-dark fs-7 text-truncate">{n.title}</span>
-                            <span className="text-muted fs-8 ms-2 flex-shrink-0">{n.timestamp}</span>
+                          <div
+                            className={`rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 ${config.badgeBgClass} ${config.iconColorClass}`}
+                            style={{ width: '26px', height: '26px', minWidth: '26px' }}
+                          >
+                            <i className={`bi ${config.icon}`} style={{ fontSize: '0.72rem' }}></i>
                           </div>
-                          <p className="text-secondary fs-8 mb-0 lh-sm">{n.message}</p>
+                          <div className="flex-grow-1 overflow-hidden">
+                            <div className="d-flex justify-content-between align-items-baseline mb-0.5">
+                              <span className="fw-bold text-truncate" style={{ fontSize: '0.72rem', color: '#0f172a' }}>
+                                {n.title}
+                              </span>
+                              <span className="ms-1 flex-shrink-0" style={{ fontSize: '0.62rem', color: '#64748b' }}>
+                                {n.timestamp}
+                              </span>
+                            </div>
+                            <p className="mb-0 lh-sm text-truncate" style={{ fontSize: '0.68rem', color: '#334155' }}>
+                              {n.message}
+                            </p>
+                          </div>
+                          {isUnread && (
+                            <span
+                              className="rounded-circle flex-shrink-0 mt-1"
+                              style={{ width: '6px', height: '6px', backgroundColor: '#2563eb' }}
+                            ></span>
+                          )}
                         </div>
-                        {!n.read && (
-                          <span
-                            className="bg-primary rounded-circle flex-shrink-0 mt-1"
-                            style={{ width: '7px', height: '7px' }}
-                          ></span>
-                        )}
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
                 {/* Notification Dropdown Footer */}
                 {notifications.length > 0 && (
-                  <div className="p-2 border-top bg-light text-center">
+                  <div className="p-1.5 border-top text-center" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
                     <button
                       type="button"
-                      className="btn btn-link p-0 text-decoration-none fs-8 text-muted fw-medium"
+                      className="btn btn-link p-0 text-decoration-none fw-medium"
+                      style={{ fontSize: '0.68rem', color: '#64748b' }}
                       onClick={handleClearAll}
                     >
                       Clear all notifications
@@ -563,6 +655,62 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               </div>
             )}
           </div>
+
+          {/* 4. TOTAL Right Corner: User Profile Button Page */}
+          <button
+            type="button"
+            onClick={() => navigate('/warehouse/profile')}
+            onMouseEnter={() => setIsProfileHovered(true)}
+            onMouseLeave={() => setIsProfileHovered(false)}
+            className="btn p-1.5 px-3 rounded-pill shadow-xs d-flex align-items-center gap-2 text-decoration-none my-auto transition-all"
+            style={{
+              backgroundColor: isProfileHovered ? '#2563eb' : '#ffffff',
+              border: '1.5px solid #2563eb',
+              color: isProfileHovered ? '#ffffff' : '#0f172a',
+              minHeight: '44px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease-in-out',
+              boxShadow: isProfileHovered
+                ? '0 4px 14px rgba(37, 99, 235, 0.35)'
+                : '0 2px 6px rgba(15, 23, 42, 0.08)',
+            }}
+            title="Open User Profile"
+          >
+            <img
+              src={safeProfile.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'}
+              alt={safeProfile.name}
+              className="rounded-circle object-fit-cover shadow-xs"
+              style={{
+                width: '34px',
+                height: '34px',
+                minWidth: '34px',
+                border: isProfileHovered ? '1.5px solid #ffffff' : '1.5px solid #cbd5e1',
+                transition: 'border-color 0.2s ease-in-out',
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+              }}
+            />
+            <div className="d-none d-md-flex flex-column text-start justify-content-center" style={{ lineHeight: '1.15' }}>
+              <span
+                className={`fw-bold fs-7 ${isProfileHovered ? 'text-white' : 'text-dark'} text-truncate`}
+                style={{ maxWidth: '140px' }}
+              >
+                {safeProfile.name}
+              </span>
+              <span
+                className="fs-8 text-truncate"
+                style={{
+                  maxWidth: '140px',
+                  fontSize: '0.72rem',
+                  color: isProfileHovered ? 'rgba(255, 255, 255, 0.85)' : '#475569',
+                }}
+              >
+                {safeProfile.role}
+              </span>
+            </div>
+            <i className={`bi bi-chevron-right ${isProfileHovered ? 'text-white' : 'text-dark'} fs-8 ms-1`}></i>
+          </button>
         </div>
       </div>
     </header>

@@ -159,64 +159,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
             </NavLink>
           </nav>
         </div>
-
-        {/* User Profile Navigation Card at Bottom of Sidebar */}
-        <div className="pt-3 border-top border-secondary border-opacity-50">
-          <NavLink
-            to="/warehouse/profile"
-            onClick={onCloseMobile}
-            className={({ isActive }) =>
-              `sidebar-nav-item d-flex align-items-center justify-content-between text-decoration-none ${
-                isActive ? 'active' : ''
-              }`
-            }
-            title="Click to view & edit profile"
-            style={{
-              padding: '10px 12px',
-              borderRadius: '13px',
-            }}
-          >
-            {({ isActive }) => (
-              <>
-                <div className="d-flex align-items-center gap-3 overflow-hidden me-1" style={{ gap: '12px' }}>
-                  {safeProfile.avatarUrl ? (
-                    <img
-                      src={safeProfile.avatarUrl}
-                      alt={safeProfile.name || 'Alex Mercer'}
-                      className={`rounded-circle border border-2 ${isActive ? 'border-white' : 'border-secondary'
-                        } object-fit-cover flex-shrink-0`}
-                      style={{ width: '38px', height: '38px' }}
-                    />
-                  ) : (
-                    <div
-                      className={`rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0 border border-2 ${isActive
-                        ? 'bg-white text-primary border-white'
-                        : 'bg-secondary text-white border-secondary'
-                        }`}
-                      style={{ width: '38px', height: '38px', fontSize: '0.85rem' }}
-                    >
-                      {safeProfile.name
-                        ? safeProfile.name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
-                        : 'AM'}
-                    </div>
-                  )}
-                  <div className="d-flex flex-column justify-content-center text-start min-w-0">
-                    <span className="fw-bold fs-7 d-block text-truncate text-white lh-sm mb-0.5">
-                      {safeProfile.name || 'Alex Mercer'}
-                    </span>
-                    <span className="fs-8 fw-medium d-block text-truncate text-white-50 lh-sm">
-                      {safeProfile.role || 'Shift Supervisor'}
-                    </span>
-                  </div>
-                </div>
-                <i
-                  className={`bi bi-chevron-right fs-7 flex-shrink-0 ms-1 ${isActive ? 'text-white' : 'text-white-50'
-                    }`}
-                ></i>
-              </>
-            )}
-          </NavLink>
-        </div>
       </aside>
     </>
   );

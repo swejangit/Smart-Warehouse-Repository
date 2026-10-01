@@ -35,6 +35,7 @@ export const AppRoutes: React.FC = () => {
       <Route path="/put-away/:taskId" element={<Navigate to="/warehouse/put-away/:taskId" replace />} />
       <Route path="/inventory" element={<Navigate to="/warehouse/inventory" replace />} />
       <Route path="/inventory/:id" element={<Navigate to="/warehouse/inventory/:id" replace />} />
+      <Route path="/profile" element={<Navigate to="/warehouse/profile" replace />} />
 
       {/* Main Operational Warehouse Layout */}
       <Route path="/warehouse" element={<WarehouseLayout />}>
