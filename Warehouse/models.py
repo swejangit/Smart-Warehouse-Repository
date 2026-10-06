@@ -6,35 +6,12 @@ class Warehouse(models.Model):
         ("Inactive", "Inactive"),
     ]
 
-    code = models.CharField(
-        max_length=50,
-        unique=True,
-        db_index=True
-    )
-
-    name = models.CharField(
-        max_length=150
-    )
-
-    city = models.CharField(
-        max_length=100,
-
-    )
-
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="Active"
-    )
-
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
-
-    updated_at = models.DateTimeField(
-        auto_now=True
-    )
-
+    code = models.CharField(max_length=50, unique=True, db_index=True)
+    name = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     class Meta:
         db_table = "Warehouse"
         ordering = ["code"]
@@ -57,37 +34,13 @@ class Location(models.Model):
         ("Inactive", "Inactive"),
     ]
 
-    code = models.CharField(
-        max_length=50,
-        db_index=True,
-    )
-
-    warehouse = models.ForeignKey(
-        Warehouse,
-        on_delete=models.CASCADE,
-        related_name="locations"
-    )
-
-    type = models.CharField(
-        max_length=20,
-        choices=LOCATION_TYPE_CHOICES,
-        default="BIN"
-    )
-
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="Active"
-    )
-
-    created_at = models.DateTimeField(
-        auto_now_add=True
-    )
-
-    updated_at = models.DateTimeField(
-        auto_now=True
-    )
-
+    code = models.CharField(max_length=50, unique=True, db_index=True)
+    warehouse = models.ForeignKey(Warehouse,on_delete=models.CASCADE, related_name="locations")
+    type = models.CharField(max_length=20, choices=LOCATION_TYPE_CHOICES, default="BIN")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+        
     class Meta:
         db_table = "locations"
 

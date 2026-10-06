@@ -10,16 +10,8 @@ class Product(models.Model):
 class StockBalance(models.Model):
     stock_balance_id = models.AutoField(primary_key=True)
     product = models.ForeignKey(Product,on_delete=models.PROTECT)
-    warehouse = models.ForeignKey(
-        'Warehouse.Warehouse',
-        on_delete=models.PROTECT,
-    )
-
-    location = models.ForeignKey(
-        'Warehouse.Location',
-        on_delete=models.PROTECT,
-    )
-
+    warehouse = models.ForeignKey('Warehouse.Warehouse', on_delete=models.PROTECT)
+    location = models.ForeignKey('Warehouse.Location',on_delete=models.PROTECT)
     total_quantity = models.PositiveBigIntegerField(default=0)
     reserved_quantity = models.PositiveBigIntegerField(default=0)
     available_quantity = models.PositiveBigIntegerField(default=0)
@@ -49,22 +41,11 @@ class InventoryTransaction(models.Model):
     ]
 
     transaction_id = models.AutoField(primary_key=True)
-
     product = models.ForeignKey(Product,on_delete=models.PROTECT)
     
-    transaction_type = models.CharField(
-        max_length=20,
-        choices=TRANSACTION_TYPES
-    )
-
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
     quantity = models.PositiveBigIntegerField()
-
-    source_reference = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True
-    )
-
+    source_reference = models.CharField(max_length=100, null=True, blank=True)
     transaction_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

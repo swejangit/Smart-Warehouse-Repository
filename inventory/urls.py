@@ -8,5 +8,11 @@ urlpatterns = [
     path('transactions/', views.transaction_history),
     path('transactions/<int:transaction_id>/',views.transaction_history),
     path('availability/<int:product_id>/', views.availability),
+    path('in/',views.inventory_in),
+    path('out/', views.inventory_out),
+    path('reservations/',views.reserve_stock),
+    path('reservations/<str:sales_order_id>/release/',
+    views.stock_release
+),
 
 ]

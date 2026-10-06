@@ -34,7 +34,6 @@ def validate_location_belongs_to_warehouse(warehouse_id, location_id):
 
 def validate_inventory(warehouse_id, product_id, location_id, quantity):
     validate_quantity(quantity)
-
     warehouse = validate_warehouse(warehouse_id)
     product = validate_product(product_id)
     location = validate_location_belongs_to_warehouse(
@@ -97,5 +96,34 @@ class AvailabilitySerializer(serializers.ModelSerializer):
             'available_quantity',
         ]
 
+class InventoryItemSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    received_quantity = serializers.IntegerField(min_value=1)
+class InventoryInSerializer(serializers.Serializer):
+    grn_id = serializers.IntegerField()
+    warehouse_id = serializers.IntegerField()
+    items = InventoryItemSerializer(many=True)
 
+
+class InventoryOutItemSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+class InventoryOutSerializer(serializers.Serializer):
+    sales_order_id = serializers.CharField(max_length=64)
+    warehouse_id = serializers.IntegerField()
+    items = InventoryOutItemSerializer(many=True)
+
+
+class ReservationSerializer(serializers.Serializer):
+    sales_order_id = serializers.CharField(max_length=64)
+    warehouse_id = serializers.IntegerField()
+    product_id = serializers.IntegerField()
+    location_id = serializers.IntegerField(required=False, default=1)
+    quantity = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0.01)
+
+class ReservationReleaseSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    warehouse_id = serializers.IntegerField()
+    location_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
 
