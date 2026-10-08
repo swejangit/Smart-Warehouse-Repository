@@ -278,6 +278,10 @@ class SalesOrderStatusView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Normalize status input
+        if isinstance(new_status, str):
+            new_status = new_status.strip().upper()
+
         valid_statuses = dict(SalesOrder.STATUS_CHOICES)
 
         if new_status not in valid_statuses:
@@ -324,37 +328,38 @@ class SalesOrderStatusView(APIView):
                     continue
 
                 result = release_stock(
-                item.product_id,
-                item.reserved_qty
-                    )
+                    item.product_id,
+                    item.reserved_qty
+                )
 
                 if result is None or not result.get("success"):
                     return Response(
-                    {
-                        "success": False,
-                        "error": {
-                            "code": "RELEASE_FAILED",
-                            "message": (
-                                f"Reservation release failed "
-                                f"for product {item.product_id}"
-                            ),
+                        {
+                            "success": False,
+                            "error": {
+                                "code": "RELEASE_FAILED",
+                                "message": (
+                                    f"Reservation release failed "
+                                    f"for product {item.product_id}"
+                                ),
                             },
-                    },
-                    status=status.HTTP_409_CONFLICT,
+                        },
+                        status=status.HTTP_409_CONFLICT,
                     )
 
-            item.reserved_qty = 0
-            item.save(
-                update_fields=["reserved_qty", "updated_at"]
-            )
+                # Clear reservation for this item
+                item.reserved_qty = 0
+                item.save(
+                    update_fields=["reserved_qty", "updated_at"]
+                )
 
         order.status = new_status
         order.save(
-            update_fields=["status", "updated_at"]  
-            )
+            update_fields=["status", "updated_at"]
+        )
 
         return Response(
-                {
+            {
                 "success": True,
                 "data": {
                     "order_id": order.id,
@@ -364,7 +369,8 @@ class SalesOrderStatusView(APIView):
                 "message": "Order status updated successfully",
             },
             status=status.HTTP_200_OK,
-        )    
+        )
+
 
 class SalesOrderReleaseReservationView(APIView):
 
@@ -394,7 +400,7 @@ class SalesOrderReleaseReservationView(APIView):
             result = release_stock(
                 item.product_id,
                 item.reserved_qty
-                )
+            )
 
             if result is None or not result.get("success"):
                 return Response(
@@ -420,7 +426,9 @@ class SalesOrderReleaseReservationView(APIView):
 
             # Clear the reservation from the order item
             item.reserved_qty = 0
-            item.save(update_fields=["reserved_qty", "updated_at"])
+            item.save(
+                update_fields=["reserved_qty", "updated_at"]
+            )
 
         if not reservations:
             return Response(
@@ -437,7 +445,9 @@ class SalesOrderReleaseReservationView(APIView):
         # If the order was RESERVED, move it back to CONFIRMED
         if order.status == "RESERVED":
             order.status = "CONFIRMED"
-            order.save(update_fields=["status", "updated_at"])
+            order.save(
+                update_fields=["status", "updated_at"]
+            )
 
         return Response(
             {
@@ -450,4 +460,4 @@ class SalesOrderReleaseReservationView(APIView):
                 "message": "Stock reservation released successfully",
             },
             status=status.HTTP_200_OK,
-        )    
+        )

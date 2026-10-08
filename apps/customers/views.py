@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from .models import Customer
 from .serializers import CustomerSerializer
+from apps.sales.models import SalesOrder
 
 
 class CustomerCreateView(APIView):
@@ -125,21 +126,34 @@ class CustomerDetailView(APIView):
         except Customer.DoesNotExist:
             return Response(
                 {
-                    "success": False,
-                    "error": {
-                        "code": "NOT_FOUND",
-                        "message": "Customer not found",
+                "success": False,
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": "Customer not found",
                     },
                 },
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            status=status.HTTP_404_NOT_FOUND,
+             )
+
+        # Prevent deletion if customer has any sales order
+        if SalesOrder.objects.filter(customer_id=customer.id).exists():
+            return Response(
+            {
+                "success": False,
+                "error": {
+                    "code": "CUSTOMER_HAS_ORDERS",
+                    "message": "Customer cannot be deleted because sales orders exist. Try Inactive instead!!",
+                },
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
 
         customer.delete()
 
         return Response(
             {
-                "success": True,
-                "message": "Customer deleted successfully",
+            "success": True,
+            "message": "Customer deleted successfully",
             },
             status=status.HTTP_200_OK,
         )
