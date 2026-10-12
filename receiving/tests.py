@@ -1,15 +1,23 @@
-
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from purchasing_temp.models import TemporaryPurchaseOrder
-from .models import GRN, TemporaryProduct, TemporarySupplier
+from .models import (
+    GRN,
+    TemporaryProduct,
+    TemporarySupplier,
+)
+
+from purchasing_temp.models import (
+    TemporaryPurchaseOrder,
+    TemporaryPurchaseOrderItem,
+)
 
 
 class GRNTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
+
         self.active_product = TemporaryProduct.objects.create(
             product_code="TEST-PROD-001",
             product_name="Test Laptop",
@@ -39,6 +47,12 @@ class GRNTests(TestCase):
             supplier_id=101,
             status="APPROVED",
             order_date="2026-09-16"
+        )
+
+        TemporaryPurchaseOrderItem.objects.create(
+            purchase_order_id=self.approved_po.id,
+            product_id=self.active_product.id,
+            ordered_qty=100
         )
 
         self.draft_po = TemporaryPurchaseOrder.objects.create(
@@ -72,10 +86,15 @@ class GRNTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(response.data["success"])
 
         self.assertTrue(
-            GRN.objects.filter(grn_no="TEST-GRN-001").exists()
+            response.data["success"]
+        )
+
+        self.assertTrue(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-001"
+            ).exists()
         )
 
     def test_create_grn_with_non_approved_po(self):
@@ -87,7 +106,7 @@ class GRNTests(TestCase):
             "status": "DRAFT",
             "items": [
                 {
-                   "product_id": self.active_product.id,
+                    "product_id": self.active_product.id,
                     "received_qty": 10,
                     "batch_id": 2,
                     "serial_id": None
@@ -152,7 +171,10 @@ class GRNTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["success"])
-        self.assertGreaterEqual(len(response.data["data"]), 1)
+        self.assertGreaterEqual(
+            len(response.data["data"]),
+            1
+        )
 
     def test_get_single_grn(self):
         grn = GRN.objects.create(
@@ -168,6 +190,7 @@ class GRNTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["success"])
+
         self.assertEqual(
             response.data["data"]["grn_no"],
             "TEST-GRN-005"
@@ -180,6 +203,7 @@ class GRNTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.data["success"])
+
         self.assertEqual(
             response.data["message"],
             "GRN not found"
@@ -215,7 +239,6 @@ class GRNTests(TestCase):
             response.data["errors"]["items"][0]["product_id"]
         )
 
-
     def test_create_grn_with_inactive_product(self):
         data = {
             "grn_no": "TEST-GRN-PRODUCT-002",
@@ -246,7 +269,6 @@ class GRNTests(TestCase):
             response.data["errors"]["items"][0]["product_id"]
         )
 
-
     def test_create_grn_with_invalid_supplier(self):
         data = {
             "grn_no": "TEST-GRN-SUPPLIER-001",
@@ -276,7 +298,6 @@ class GRNTests(TestCase):
             "Supplier does not exist.",
             response.data["errors"]["supplier_id"]
         )
-
 
     def test_create_grn_with_inactive_supplier(self):
         data = {
