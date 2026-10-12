@@ -5,7 +5,7 @@ repository.
 
 This repository follows a branch-based development workflow.
 
----
+------
 
 ## 1. Repository Structure
 
