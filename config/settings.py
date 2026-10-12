@@ -24,13 +24,54 @@ load_dotenv(BASE_DIR / ".env")
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
+# Load the Django secret key from the environment.
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY must be set in the environment.")
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+# Prevent debug mode from being enabled in production.
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+
+if ENVIRONMENT == "production" and DEBUG:
+    raise ValueError("DEBUG must be False in production.")
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS", "localhost,127.0.0.1"
+    ).split(",")
+    if host.strip()
+]
+
+if ENVIRONMENT == "production" and not ALLOWED_HOSTS:
+    raise ValueError("ALLOWED_HOSTS must contain at least one valid host.")
+
+# Security settings for production.
+# These are controlled through environment variables so local
+# development can use HTTP while production uses HTTPS.
+SECURE_SSL_REDIRECT = (
+    os.getenv("SECURE_SSL_REDIRECT", "False").lower() == "true"
+)
+
+# Tell browsers to use HTTPS for future requests.
+# Enable HSTS only after HTTPS is correctly configured in production.
+SECURE_HSTS_SECONDS = int(
+    os.getenv("SECURE_HSTS_SECONDS", "0")
+)
+
+# Send session cookies only over HTTPS when enabled.
+SESSION_COOKIE_SECURE = (
+    os.getenv("SESSION_COOKIE_SECURE", "False").lower() == "true"
+)
+
+# Send CSRF cookies only over HTTPS when enabled.
+CSRF_COOKIE_SECURE = (
+    os.getenv("CSRF_COOKIE_SECURE", "False").lower() == "true"
+)
+
 
 
 # Application definition
