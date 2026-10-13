@@ -5,3 +5,6 @@ __pycache__/
 .coverage
 .env
 *.log
+
+# Collected Django static files
+staticfiles/
