@@ -1,17 +1,13 @@
-import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { getUserProfile, DEFAULT_USER_PROFILE } from '../../utils/userProfile';
-import type { UserProfileData } from '../../utils/userProfile';
-
+import React from 'react';
 interface SidebarProps {
   isOpen: boolean;
   onCloseMobile: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
-  const [profile, setProfile] = useState<UserProfileData>(() => getUserProfile());
 
-  useEffect(() => {
+  /*useEffect(() => {
     const handleProfileUpdate = () => {
       setProfile(getUserProfile());
     };
@@ -20,9 +16,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
     return () => {
       window.removeEventListener('user-profile-updated', handleProfileUpdate);
     };
-  }, []);
+  }, []);*/
 
-  const safeProfile = profile || DEFAULT_USER_PROFILE;
+
 
   return (
     <>
