@@ -125,14 +125,52 @@ class GRNSerializer(serializers.ModelSerializer):
 
         return value
 
+    # def validate(self, attrs):
+    #     po_id = attrs.get("po_id")
+    #     items = attrs.get("items", [])
+
+    #     if not items:
+    #         raise serializers.ValidationError({
+    #             "items": "At least one GRN item is required."
+    #         })
+
+    #     for item in items:
+    #         product_id = item["product_id"]
+
+    #         try:
+    #             TemporaryPurchaseOrderItem.objects.get(
+    #                 purchase_order_id=po_id,
+    #                 product_id=product_id
+    #             )
+    #         except TemporaryPurchaseOrderItem.DoesNotExist:
+    #             raise serializers.ValidationError({
+    #                 "items": (
+    #                     f"Product {product_id} does not belong "
+    #                     f"to Purchase Order {po_id}."
+    #                 )
+    #             })
+
+    #     return attrs
+
     def validate(self, attrs):
         po_id = attrs.get("po_id")
+        supplier_id = attrs.get("supplier_id")
         items = attrs.get("items", [])
 
         if not items:
             raise serializers.ValidationError({
                 "items": "At least one GRN item is required."
             })
+
+        if supplier_id is not None:
+            po = TemporaryPurchaseOrder.objects.get(id=po_id)
+
+            if po.supplier_id != supplier_id:
+                raise serializers.ValidationError({
+                    "supplier_id": (
+                        "Supplier does not match the Purchase Order."
+                    )
+                })
 
         for item in items:
             product_id = item["product_id"]

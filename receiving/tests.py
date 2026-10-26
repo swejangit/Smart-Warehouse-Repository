@@ -41,10 +41,15 @@ class GRNTests(TestCase):
             supplier_name="Inactive Supplier",
             status="INACTIVE"
         )
+        self.other_active_supplier = TemporarySupplier.objects.create(
+            supplier_code="TEST-SUP-003",
+            supplier_name="Another Active Supplier",
+            status="ACTIVE"
+        )
 
         self.approved_po = TemporaryPurchaseOrder.objects.create(
             po_no="TEST-PO-001",
-            supplier_id=101,
+            supplier_id=self.active_supplier.id,
             status="APPROVED",
             order_date="2026-09-16"
         )
@@ -84,7 +89,7 @@ class GRNTests(TestCase):
             data,
             format="json"
         )
-
+        
         self.assertEqual(response.status_code, 201)
 
         self.assertTrue(
@@ -407,5 +412,38 @@ class GRNTests(TestCase):
         self.assertFalse(
             GRN.objects.filter(
                 grn_no="TEST-GRN-EMPTY-ITEMS"
+            ).exists()
+        )
+    def test_create_grn_with_supplier_mismatch(self):
+        data = {
+            "grn_no": "TEST-GRN-SUPPLIER-MISMATCH",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.other_active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 5,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "Supplier does not match the Purchase Order.",
+            response.data["errors"]["supplier_id"]
+        )
+        self.assertFalse(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-SUPPLIER-MISMATCH"
             ).exists()
         )
