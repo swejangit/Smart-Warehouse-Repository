@@ -152,6 +152,7 @@ class GRNSerializer(serializers.ModelSerializer):
 
     #     return attrs
 
+   
     def validate(self, attrs):
         po_id = attrs.get("po_id")
         supplier_id = attrs.get("supplier_id")
@@ -174,9 +175,10 @@ class GRNSerializer(serializers.ModelSerializer):
 
         for item in items:
             product_id = item["product_id"]
+            received_qty = item["received_qty"]
 
             try:
-                TemporaryPurchaseOrderItem.objects.get(
+                po_item = TemporaryPurchaseOrderItem.objects.get(
                     purchase_order_id=po_id,
                     product_id=product_id
                 )
@@ -188,7 +190,17 @@ class GRNSerializer(serializers.ModelSerializer):
                     )
                 })
 
+            if received_qty > po_item.ordered_qty:
+                raise serializers.ValidationError({
+                    "items": (
+                        f"Received quantity for product {product_id} "
+                        f"exceeds the ordered quantity "
+                        f"({po_item.ordered_qty})."
+                    )
+                })
+
         return attrs
+
 
     def create(self, validated_data):
 
