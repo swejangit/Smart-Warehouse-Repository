@@ -39,10 +39,8 @@ class GRNItemSerializer(serializers.ModelSerializer):
         ]
 
     def validate_product_id(self, value):
-
         try:
             product = TemporaryProduct.objects.get(id=value)
-
         except TemporaryProduct.DoesNotExist:
             raise serializers.ValidationError(
                 "Product does not exist."
@@ -51,6 +49,14 @@ class GRNItemSerializer(serializers.ModelSerializer):
         if product.status != "ACTIVE":
             raise serializers.ValidationError(
                 "Product is not active."
+            )
+
+        return value
+
+    def validate_received_qty(self, value):
+        if value <= 0:
+            raise serializers.ValidationError(
+                "Received quantity must be greater than zero."
             )
 
         return value
@@ -120,12 +126,15 @@ class GRNSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-
         po_id = attrs.get("po_id")
         items = attrs.get("items", [])
 
-        for item in items:
+        if not items:
+            raise serializers.ValidationError({
+                "items": "At least one GRN item is required."
+            })
 
+        for item in items:
             product_id = item["product_id"]
 
             try:
@@ -133,7 +142,6 @@ class GRNSerializer(serializers.ModelSerializer):
                     purchase_order_id=po_id,
                     product_id=product_id
                 )
-
             except TemporaryPurchaseOrderItem.DoesNotExist:
                 raise serializers.ValidationError({
                     "items": (

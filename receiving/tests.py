@@ -328,3 +328,84 @@ class GRNTests(TestCase):
             "Supplier is not active.",
             response.data["errors"]["supplier_id"]
         )
+    def test_create_grn_with_zero_received_quantity(self):
+        data = {
+            "grn_no": "TEST-GRN-ZERO-QTY",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 0,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-ZERO-QTY"
+            ).exists()
+        )
+
+    def test_create_grn_with_negative_received_quantity(self):
+        data = {
+            "grn_no": "TEST-GRN-NEGATIVE-QTY",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": -5,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-NEGATIVE-QTY"
+            ).exists()
+        )
+    def test_create_grn_without_items(self):
+        data = {
+            "grn_no": "TEST-GRN-EMPTY-ITEMS",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [],
+        }
+
+        response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-EMPTY-ITEMS"
+            ).exists()
+        )
