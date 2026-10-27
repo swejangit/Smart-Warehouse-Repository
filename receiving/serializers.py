@@ -8,9 +8,10 @@ from purchasing_temp.models import (
 from .models import (
     GRN,
     GRNItem,
-    TemporaryProduct,
     TemporarySupplier,
 )
+
+from products.models import Product
 
 
 class EligiblePOSerializer(serializers.ModelSerializer):
@@ -40,13 +41,13 @@ class GRNItemSerializer(serializers.ModelSerializer):
 
     def validate_product_id(self, value):
         try:
-            product = TemporaryProduct.objects.get(id=value)
-        except TemporaryProduct.DoesNotExist:
+            product = Product.objects.get(id=value)
+        except Product.DoesNotExist:
             raise serializers.ValidationError(
                 "Product does not exist."
             )
 
-        if product.status != "ACTIVE":
+        if not product.active:
             raise serializers.ValidationError(
                 "Product is not active."
             )

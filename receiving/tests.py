@@ -3,31 +3,41 @@ from rest_framework.test import APIClient
 
 from .models import (
     GRN,
-    TemporaryProduct,
     TemporarySupplier,
 )
+
+from products.models import Category, Product
 
 from purchasing_temp.models import (
     TemporaryPurchaseOrder,
     TemporaryPurchaseOrderItem,
 )
 
-
 class GRNTests(TestCase):
 
     def setUp(self):
         self.client = APIClient()
 
-        self.active_product = TemporaryProduct.objects.create(
-            product_code="TEST-PROD-001",
-            product_name="Test Laptop",
-            status="ACTIVE"
+        self.category = Category.objects.create(
+            name="Test Electronics"
+)
+
+        self.active_product = Product.objects.create(
+            sku="TEST-PROD-001",
+            name="Test Laptop",
+            category=self.category,
+            base_unit="PCS",
+            reorder_level=10,
+            active=True,
         )
 
-        self.inactive_product = TemporaryProduct.objects.create(
-            product_code="TEST-PROD-002",
-            product_name="Inactive Product",
-            status="INACTIVE"
+        self.inactive_product = Product.objects.create(
+            sku="TEST-PROD-002",
+            name="Inactive Product",
+            category=self.category,
+            base_unit="PCS",
+            reorder_level=5,
+            active=False,
         )
 
         self.active_supplier = TemporarySupplier.objects.create(

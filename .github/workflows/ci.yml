@@ -60,3 +60,6 @@ jobs:
 
       - name: Run Employee 4 tests
         run: python manage.py test receiving
+
+      - name: Run Product Master tests
+        run: python -m pytest products/tests/ -v

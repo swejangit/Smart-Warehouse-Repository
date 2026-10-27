@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'purchasing_temp',
     'receiving',
+    'products',
 ]
 
 
