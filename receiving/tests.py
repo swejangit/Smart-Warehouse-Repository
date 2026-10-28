@@ -99,7 +99,7 @@ class GRNTests(TestCase):
             data,
             format="json"
         )
-        
+
         self.assertEqual(response.status_code, 201)
 
         self.assertTrue(
@@ -110,6 +110,48 @@ class GRNTests(TestCase):
             GRN.objects.filter(
                 grn_no="TEST-GRN-001"
             ).exists()
+        )
+
+    def test_create_grn_with_duplicate_grn_number(self):
+        data = {
+            "grn_no": "TEST-GRN-DUPLICATE",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 10,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        first_response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+        self.assertEqual(first_response.status_code, 201)
+
+        second_response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+        self.assertEqual(second_response.status_code, 400)
+        self.assertIn(
+            "GRN number already exists.",
+            str(second_response.data),
+        )
+
+        self.assertEqual(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-DUPLICATE"
+            ).count(),
+            1,
         )
 
     def test_create_grn_with_non_approved_po(self):
@@ -457,7 +499,7 @@ class GRNTests(TestCase):
                 grn_no="TEST-GRN-SUPPLIER-MISMATCH"
             ).exists()
         )
-    
+
     def test_create_grn_with_received_quantity_exceeding_ordered_quantity(self):
         data = {
             "grn_no": "TEST-GRN-OVER-RECEIVE",
@@ -491,3 +533,102 @@ class GRNTests(TestCase):
                 grn_no="TEST-GRN-OVER-RECEIVE"
             ).exists()
         )
+
+
+    def test_cumulative_quantity_exceeding_po_is_rejected(self):
+        # First GRN receives 60 out of 100 units.
+        first_payload = {
+            "grn_no": "TEST-GRN-CUM-001",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 60,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        first_response = self.client.post(
+            "/api/receiving/grns/",
+            first_payload,
+            format="json",
+        )
+        self.assertEqual(first_response.status_code, 201)
+
+        # Only 40 units remain, so requesting 41 must fail.
+        second_payload = {
+            "grn_no": "TEST-GRN-CUM-002",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 41,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        second_response = self.client.post(
+            "/api/receiving/grns/",
+            second_payload,
+            format="json",
+        )
+        self.assertEqual(second_response.status_code, 400)
+
+    def test_partial_receiving_across_multiple_grns_is_allowed(self):
+        # First GRN receives 60 units.
+        first_payload = {
+            "grn_no": "TEST-GRN-PART-001",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 60,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        first_response = self.client.post(
+            "/api/receiving/grns/",
+            first_payload,
+            format="json",
+        )
+        self.assertEqual(first_response.status_code, 201)
+
+        # The remaining 40 units should be allowed.
+        second_payload = {
+            "grn_no": "TEST-GRN-PART-002",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 40,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        second_response = self.client.post(
+            "/api/receiving/grns/",
+            second_payload,
+            format="json",
+        )
+        self.assertEqual(second_response.status_code, 201)

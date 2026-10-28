@@ -1,21 +1,21 @@
-from rest_framework import serializers
 
+from django.db.models import Sum
+from rest_framework import serializers
+from django.db import transaction
+
+from products.models import Product
 from purchasing_temp.models import (
     TemporaryPurchaseOrder,
     TemporaryPurchaseOrderItem,
 )
-
 from .models import (
     GRN,
     GRNItem,
     TemporarySupplier,
 )
 
-from products.models import Product
-
 
 class EligiblePOSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = TemporaryPurchaseOrder
         fields = [
@@ -28,7 +28,6 @@ class EligiblePOSerializer(serializers.ModelSerializer):
 
 
 class GRNItemSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = GRNItem
         fields = [
@@ -38,6 +37,7 @@ class GRNItemSerializer(serializers.ModelSerializer):
             "batch_id",
             "serial_id",
         ]
+        read_only_fields = ["id"]
 
     def validate_product_id(self, value):
         try:
@@ -64,8 +64,12 @@ class GRNItemSerializer(serializers.ModelSerializer):
 
 
 class GRNSerializer(serializers.ModelSerializer):
-
+    grn_no = serializers.CharField(
+        max_length=50,
+        validators=[],
+    )
     items = GRNItemSerializer(many=True)
+
 
     class Meta:
         model = GRN
@@ -81,17 +85,24 @@ class GRNSerializer(serializers.ModelSerializer):
             "created_at",
             "items",
         ]
+        read_only_fields = ["id", "created_at"]
 
-        read_only_fields = [
-            "id",
-            "created_at",
-        ]
+    def validate_grn_no(self, value):
+        queryset = GRN.objects.filter(grn_no=value)
+
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                "GRN number already exists."
+            )
+
+        return value
 
     def validate_po_id(self, value):
-
         try:
             po = TemporaryPurchaseOrder.objects.get(id=value)
-
         except TemporaryPurchaseOrder.DoesNotExist:
             raise serializers.ValidationError(
                 "Purchase Order does not exist."
@@ -105,15 +116,11 @@ class GRNSerializer(serializers.ModelSerializer):
         return value
 
     def validate_supplier_id(self, value):
-
         if value is None:
             return value
 
         try:
-            supplier = TemporarySupplier.objects.get(
-                id=value
-            )
-
+            supplier = TemporarySupplier.objects.get(id=value)
         except TemporarySupplier.DoesNotExist:
             raise serializers.ValidationError(
                 "Supplier does not exist."
@@ -126,34 +133,6 @@ class GRNSerializer(serializers.ModelSerializer):
 
         return value
 
-    # def validate(self, attrs):
-    #     po_id = attrs.get("po_id")
-    #     items = attrs.get("items", [])
-
-    #     if not items:
-    #         raise serializers.ValidationError({
-    #             "items": "At least one GRN item is required."
-    #         })
-
-    #     for item in items:
-    #         product_id = item["product_id"]
-
-    #         try:
-    #             TemporaryPurchaseOrderItem.objects.get(
-    #                 purchase_order_id=po_id,
-    #                 product_id=product_id
-    #             )
-    #         except TemporaryPurchaseOrderItem.DoesNotExist:
-    #             raise serializers.ValidationError({
-    #                 "items": (
-    #                     f"Product {product_id} does not belong "
-    #                     f"to Purchase Order {po_id}."
-    #                 )
-    #             })
-
-    #     return attrs
-
-   
     def validate(self, attrs):
         po_id = attrs.get("po_id")
         supplier_id = attrs.get("supplier_id")
@@ -164,26 +143,44 @@ class GRNSerializer(serializers.ModelSerializer):
                 "items": "At least one GRN item is required."
             })
 
-        if supplier_id is not None:
+        try:
             po = TemporaryPurchaseOrder.objects.get(id=po_id)
+        except TemporaryPurchaseOrder.DoesNotExist:
+            raise serializers.ValidationError({
+                "po_id": "Purchase Order does not exist."
+            })
 
-            if po.supplier_id != supplier_id:
-                raise serializers.ValidationError({
-                    "supplier_id": (
-                        "Supplier does not match the Purchase Order."
-                    )
-                })
+        if supplier_id is not None and po.supplier_id != supplier_id:
+            raise serializers.ValidationError({
+                "supplier_id": (
+                    "Supplier does not match the Purchase Order."
+                )
+            })
+
+        # Aggregate requested quantities for duplicate product lines.
+        requested_quantities = {}
 
         for item in items:
             product_id = item["product_id"]
             received_qty = item["received_qty"]
 
-            try:
-                po_item = TemporaryPurchaseOrderItem.objects.get(
+            requested_quantities[product_id] = (
+                requested_quantities.get(product_id, 0)
+                + received_qty
+            )
+
+        # Validate cumulative quantities against the PO product totals.
+        for product_id, requested_qty in requested_quantities.items():
+            po_quantity = (
+                TemporaryPurchaseOrderItem.objects
+                .filter(
                     purchase_order_id=po_id,
-                    product_id=product_id
+                    product_id=product_id,
                 )
-            except TemporaryPurchaseOrderItem.DoesNotExist:
+                .aggregate(total=Sum("ordered_qty"))["total"]
+            )
+
+            if po_quantity is None:
                 raise serializers.ValidationError({
                     "items": (
                         f"Product {product_id} does not belong "
@@ -191,31 +188,38 @@ class GRNSerializer(serializers.ModelSerializer):
                     )
                 })
 
-            if received_qty > po_item.ordered_qty:
+            previously_received = (
+                GRNItem.objects
+                .filter(
+                    grn_id__po_id=po_id,
+                    product_id=product_id,
+                )
+                .aggregate(total=Sum("received_qty"))["total"]
+            ) or 0
+
+            remaining_qty = po_quantity - previously_received
+
+            if requested_qty > remaining_qty:
                 raise serializers.ValidationError({
                     "items": (
-                        f"Received quantity for product {product_id} "
-                        f"exceeds the ordered quantity "
-                        f"({po_item.ordered_qty})."
+                        f"Product {product_id}: requested quantity "
+                        f"{requested_qty} exceeds the ordered quantity "
+                        f"{remaining_qty}."
                     )
                 })
 
         return attrs
 
-
+    @transaction.atomic
     def create(self, validated_data):
-
         items_data = validated_data.pop("items")
 
-        grn = GRN.objects.create(
-            **validated_data
-        )
+        grn = GRN.objects.create(**validated_data)
 
         for item_data in items_data:
-
             GRNItem.objects.create(
                 grn_id=grn,
-                **item_data
+                **item_data,
             )
 
         return grn
