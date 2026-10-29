@@ -68,6 +68,7 @@ class GRNSerializer(serializers.ModelSerializer):
         max_length=50,
         validators=[],
     )
+    supplier_id = serializers.IntegerField(required=True)
     items = GRNItemSerializer(many=True)
 
 
@@ -116,8 +117,6 @@ class GRNSerializer(serializers.ModelSerializer):
         return value
 
     def validate_supplier_id(self, value):
-        if value is None:
-            return value
 
         try:
             supplier = TemporarySupplier.objects.get(id=value)

@@ -20,7 +20,7 @@ class GRNTests(TestCase):
 
         self.category = Category.objects.create(
             name="Test Electronics"
-)
+        )
 
         self.active_product = Product.objects.create(
             sku="TEST-PROD-001",
@@ -75,6 +75,14 @@ class GRNTests(TestCase):
             supplier_id=102,
             status="DRAFT",
             order_date="2026-09-16"
+        )
+        self.unordered_product = Product.objects.create(
+            sku="TEST-PROD-003",
+            name="Product Not In PO",
+            category=self.category,
+            base_unit="PCS",
+            reorder_level=5,
+            active=True,
         )
 
     def test_create_grn_with_approved_po(self):
@@ -632,3 +640,132 @@ class GRNTests(TestCase):
             format="json",
         )
         self.assertEqual(second_response.status_code, 201)
+    def test_eligible_pos_returns_only_approved_orders(self):
+        response = self.client.get(
+            "/api/receiving/eligible-pos/"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["success"])
+
+        returned_po_ids = [
+            po["id"]
+            for po in response.data["data"]
+        ]
+
+        self.assertIn(
+            self.approved_po.id,
+            returned_po_ids,
+        )
+
+        self.assertNotIn(
+            self.draft_po.id,
+            returned_po_ids,
+        )
+
+    def test_create_grn_without_supplier_id(self):
+        data = {
+            "grn_no": "TEST-GRN-NO-SUPPLIER",
+            "po_id": self.approved_po.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 10,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "supplier_id",
+            response.data["errors"],
+        )
+        self.assertFalse(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-NO-SUPPLIER"
+            ).exists()
+        )
+
+    def test_duplicate_product_lines_exceeding_po_quantity_are_rejected(self):
+        data = {
+            "grn_no": "TEST-GRN-DUPLICATE-PRODUCT-LINES",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 60,
+                    "batch_id": 1,
+                    "serial_id": None,
+                },
+                {
+                    "product_id": self.active_product.id,
+                    "received_qty": 50,
+                    "batch_id": 2,
+                    "serial_id": None,
+                },
+            ],
+        }
+
+        response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "exceeds the ordered quantity",
+            str(response.data["errors"]["items"]),
+        )
+        self.assertFalse(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-DUPLICATE-PRODUCT-LINES"
+            ).exists()
+        )
+
+    def test_create_grn_with_product_not_in_po(self):
+        data = {
+            "grn_no": "TEST-GRN-PRODUCT-NOT-IN-PO",
+            "po_id": self.approved_po.id,
+            "supplier_id": self.active_supplier.id,
+            "warehouse_id": 1,
+            "status": "DRAFT",
+            "items": [
+                {
+                    "product_id": self.unordered_product.id,
+                    "received_qty": 10,
+                    "batch_id": 1,
+                    "serial_id": None,
+                }
+            ],
+        }
+
+        response = self.client.post(
+            "/api/receiving/grns/",
+            data,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "does not belong to Purchase Order",
+            str(response.data["errors"]["items"]),
+        )
+        self.assertFalse(
+            GRN.objects.filter(
+                grn_no="TEST-GRN-PRODUCT-NOT-IN-PO"
+            ).exists()
+        )
